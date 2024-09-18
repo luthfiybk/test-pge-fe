@@ -1,0 +1,41 @@
+{
+  "Files": [
+    {
+      "Id": "/Users/luthfiybk/Documents/learning/cs/test-pge-fe/obj/Debug/net8.0/scopedcss/projectbundle/test-pge-fe.bundle.scp.css",
+      "PackagePath": "staticwebassets/test-pge-fe.bundle.scp.css"
+    },
+    {
+      "Id": "/Users/luthfiybk/Documents/learning/cs/test-pge-fe/wwwroot/app.css",
+      "PackagePath": "staticwebassets/app.css"
+    },
+    {
+      "Id": "/Users/luthfiybk/Documents/learning/cs/test-pge-fe/wwwroot/bootstrap/bootstrap.min.css",
+      "PackagePath": "staticwebassets/bootstrap/bootstrap.min.css"
+    },
+    {
+      "Id": "/Users/luthfiybk/Documents/learning/cs/test-pge-fe/wwwroot/bootstrap/bootstrap.min.css.map",
+      "PackagePath": "staticwebassets/bootstrap/bootstrap.min.css.map"
+    },
+    {
+      "Id": "/Users/luthfiybk/Documents/learning/cs/test-pge-fe/wwwroot/favicon.png",
+      "PackagePath": "staticwebassets/favicon.png"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.test-pge-fe.props",
+      "PackagePath": "build\\test-pge-fe.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.test-pge-fe.props",
+      "PackagePath": "buildMultiTargeting\\test-pge-fe.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.test-pge-fe.props",
+      "PackagePath": "buildTransitive\\test-pge-fe.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.test-pge-fe.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

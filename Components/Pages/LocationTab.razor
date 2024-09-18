@@ -1,0 +1,285 @@
+@using TabBlazor
+@inject HttpClient Http
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<h3>Weather Locations</h3>
+
+@if (locationNames == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <Tabs>
+        @for (int i = 0; i < locationNames.Count; i++)
+        {
+            var locationName = locationNames[i];
+            var index = i;
+            <Tab Title="@locationName.Replace('_', ' ')" OnClick="@(args => OnTabClicked(index))">
+                @if (currentLocation != null && selectedTabIndex == index)
+                {
+                    <Card>
+                        <CardHeader>
+                            @currentLocation.LocationName
+                        </CardHeader>
+                        <CardBody>
+                            @currentLocation.Lat LS @currentLocation.Lon BT
+                        </CardBody>
+                    </Card>
+
+                    @* Display forecast in a table *@
+                    @if (currentLocation.Forecast != null && currentLocation.Forecast.Any())
+                    {
+                        <h4>Weather Forecast</h4>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <th>Cuaca</th>
+                                    <th>Suhu (C)</th>
+                                    <th>RH (%)</th>
+                                    <th>Arah Angin</th>
+                                    <th>Kecepatan Angin (Km/Jam)</th>
+                                    <th>Visibility</th>
+                                    <th>Intensitas Curah Hujan (mm)</th>
+                                    <th>Durasi Hujan (Jam)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var forecast in PaginatedForecasts())
+                                {
+                                    <tr>
+                                        <td>@forecast.LocalTime</td>
+                                        <td>@forecast.Weather</td>
+                                        <td>@forecast.MinTemp - @forecast.MaxTemp</td>
+                                        <td>@forecast.RhMin - @forecast.RhMax</td>
+                                        <td>@forecast.WindDir</td>
+                                        <td>@forecast.WindSpeed</td>
+                                        <td>@forecast.Visibility</td>
+                                        <td>@forecast.Prec</td>
+                                        <td>@forecast.Duration</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+
+                        <div class="pagination">
+                            <button @onclick="PrevPage" disabled="@(currentPage == 1)">Previous</button>
+                            <span>Page @currentPage of @totalPages</span>
+                            <button @onclick="NextPage" disabled="@(currentPage == totalPages)">Next</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <p>No forecast data available.</p>
+                    }
+                }
+                else if (selectedTabIndex == index)
+                {
+                    <p>Loading location details...</p>
+                }
+            </Tab>
+        }
+    </Tabs>
+}
+
+@code {
+    private List<string> locationNames;
+    private Location currentLocation;
+    private int selectedTabIndex = 0;
+    private int currentPage = 1;
+    private int pageSize = 7;
+    private int totalPages => currentLocation != null && currentLocation.Forecast != null
+        ? (int)Math.Ceiling((double)currentLocation.Forecast.Count / pageSize)
+        : 1;
+
+    private IEnumerable<Forecast> PaginatedForecasts()
+    {
+        if (currentLocation?.Forecast == null) return Enumerable.Empty<Forecast>();
+        
+        return currentLocation.Forecast
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize);
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < totalPages)
+        {
+            currentPage++;
+        }
+    }
+
+    private void PrevPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchLocationNames();
+        await SetTabIndexFromQueryParameter();
+        if (selectedTabIndex >= 0)
+        {
+            await FetchLocationData(selectedTabIndex);
+        }
+    }
+
+    private async Task FetchLocationNames()
+    {
+        try
+        {
+            string apiUrl = "/cuaca/api";
+            using var response = await Http.GetAsync(apiUrl);
+            response.EnsureSuccessStatusCode();
+            using var responseStream = await response.Content.ReadAsStreamAsync();
+            using var jsonDocument = await JsonDocument.ParseAsync(responseStream);
+
+            locationNames = new List<string>();
+            foreach (var element in jsonDocument.RootElement.EnumerateArray())
+            {
+                if (element.TryGetProperty("location_name", out var locationName))
+                {
+                    locationNames.Add(locationName.GetString());
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching location names: {ex.Message}");
+        }
+    }
+
+    // Set selected tab index from the query parameter
+    private async Task SetTabIndexFromQueryParameter()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("lok", out var lokParam))
+        {
+            if (int.TryParse(lokParam, out var lokIndex) && lokIndex >= 0 && lokIndex < locationNames?.Count)
+            {
+                selectedTabIndex = lokIndex;
+            }
+        }
+    }
+
+    // Fetch the details of the selected location
+    private async Task FetchLocationData(int index)
+    {
+        try
+        {
+            string apiUrl = "/cuaca/api";
+            using var response = await Http.GetAsync(apiUrl);
+            response.EnsureSuccessStatusCode();
+            using var responseStream = await response.Content.ReadAsStreamAsync();
+            using var jsonDocument = await JsonDocument.ParseAsync(responseStream);
+
+            if (jsonDocument.RootElement.GetArrayLength() > index)
+            {
+                var locationElement = jsonDocument.RootElement[index];
+                currentLocation = JsonSerializer.Deserialize<Location>(locationElement.GetRawText());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching location data: {ex.Message}");
+        }
+    }
+
+    // Handle tab click event
+    private async Task OnTabClicked(int newIndex)
+    {
+        selectedTabIndex = newIndex;
+
+        var uri = new Uri(Navigation.Uri);
+        var queryParams = QueryHelpers.ParseQuery(uri.Query);
+
+        var newQuery = new Dictionary<string, string>();
+
+        foreach (var param in queryParams)
+        {
+            newQuery[param.Key] = param.Value.ToString(); 
+        }
+
+        newQuery["lok"] = newIndex.ToString();
+
+        var newUri = QueryHelpers.AddQueryString(uri.GetLeftPart(UriPartial.Path), newQuery);
+
+        Navigation.NavigateTo(newUri, replace: true);
+
+        await FetchLocationData(newIndex);
+    }
+
+
+    public class Location
+    {
+        [JsonPropertyName("location_name")]
+        public string LocationName { get; set; }
+        [JsonPropertyName("location_id")]
+        public string LocationId { get; set; }
+        [JsonPropertyName("lat")]
+        public double Lat { get; set; }
+        [JsonPropertyName("lon")]
+        public double Lon { get; set; }
+        [JsonPropertyName("kecamatan")]
+        public string Kecamatan { get; set; }
+        [JsonPropertyName("kabupaten")]
+        public string Kabupaten { get; set; }
+        [JsonPropertyName("provinsi")]
+        public string Provinsi { get; set; }
+        public List<Forecast> Forecast { get; set; }
+    }
+
+    public class Forecast
+    {
+        [JsonPropertyName("time_local")]
+        public string LocalTime { get; set; }
+
+        [JsonPropertyName("temp_min")]
+        public double MinTemp { get; set; }
+
+        [JsonPropertyName("temp_max")]
+        public double MaxTemp { get; set; }
+
+        [JsonPropertyName("rh_min")]
+        public double RhMin { get; set; }
+
+        [JsonPropertyName("rh_max")]
+        public double RhMax { get; set; }
+
+        [JsonPropertyName("windspd24h")]
+        public double WindSpeed { get; set; }
+
+        [JsonPropertyName("windir24h")]
+        public string WindDir { get; set; }
+        
+        [JsonPropertyName("prec24h")]
+        public double Prec { get; set; }
+
+        [JsonPropertyName("weather")]
+        public string Weather { get; set; }
+
+        [JsonPropertyName("dur24h")]
+        public int Duration { get; set; }
+
+        [JsonPropertyName("vis24h")]
+        public string Visibility { get; set; }
+
+        [JsonPropertyName("weather_code")]
+        public int WeatherCode { get; set; }
+
+        [JsonPropertyName("alert_daily")]
+        public int AlertDaily { get; set; }
+
+        [JsonPropertyName("alert_all")]
+        public string AlertAll { get; set; }
+
+    }
+}
